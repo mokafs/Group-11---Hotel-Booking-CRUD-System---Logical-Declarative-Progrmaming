@@ -8,6 +8,11 @@ test_connect(Connection) :-
     odbc_connect('ssamu', Connection, [user('root'), password('')]),
     write('Connection Succesful!').
 
+guest_exists(Connection, Guest_name) :-
+    format(atom(Query), 'SELECT Guest_Name FROM guest WHERE Guest_Name = \'~w\'', [Guest_name]),
+    odbc_query(Connection, Query, row(_)).
+    
+
 % CREATE---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 create_booking_n(Connection, Room_ID, Guest_ID, Reservation_Status, Payment_ID, Check_in, Check_out) :-
     % Retrieve the next auto-increment value for booking_ID
@@ -68,8 +73,15 @@ create_booking_interactively :-
 create_guest_interactively :-
     connect_to_mysql(Connection),
     % Prompt for Guest Name and read the input
+    repeat,
     format('Enter guest name: '), read(Guest_Name),
-          
+    (   guest_exists(Connection, Guest_Name) ->
+        writeln('Error: Guest name already exists in the database. Please enter a different name.'),
+        fail % Loop back to re-prompt for guest name
+    ; 
+        !
+    ),
+
     % Prompt for Guest Gender and read the input
     format('Enter Guest gender: '), read(Guest_Gender),
           
@@ -410,13 +422,27 @@ update_guest_interactively :-
     
     (UpdateMode =:= 1 ->
         % Update all attributes
+        repeat,
         format('Update Name with? : '), read(Guest_Name),
+        (   guest_exists(Connection, Guest_Name) ->
+        writeln('Error: Guest name already exists in the database. Please enter a different name.'),
+        fail % Loop back to re-prompt for guest name
+        ; 
+            !
+        ),
         format('Update Gender? : '), read(Guest_Gender),
         format('Update Contact? : '), read(Guest_Contact),
         format('Update Email? : '), read(Guest_Email)
     ; UpdateMode =:= 2 ->
         % Selective update
+        repeat,
         format('Update Name? (y/n): '), read(UpdateName),
+        (   guest_exists(Connection, UpdateName) ->
+        writeln('Error: Guest name already exists in the database. Please enter a different name.'),
+        fail % Loop back to re-prompt for guest name
+        ; 
+            !
+        ),
         format('Update Gender? (y/n): '), read(UpdateGender),
         format('Update Contact? (y/n): '), read(UpdateContact),
         format('Update Email? (y/n): '), read(UpdateEmail),
