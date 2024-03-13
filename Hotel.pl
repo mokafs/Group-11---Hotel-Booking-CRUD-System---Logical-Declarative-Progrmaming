@@ -21,7 +21,18 @@ date_exists(Connection, Room_ID, Check_In, Check_Out) :-
         \'~w\' > Check_In
     );', [Room_ID, Check_In, Check_Out]),
     odbc_query(Connection, Query, row(_, _)).
+
+repeat_contact_number_prompt(Contact) :-
+    read_line_to_codes(user_input, ContactCodes),
+    string_codes(Contact, ContactCodes),
+    string_length(Contact, 11),
+    string_chars(Contact, Chars),
+    maplist(char_type, Chars, [digit]),
+    !. % Cut to stop backtracking if the input is valid
     
+repeat_contact_number_prompt(Contact) :-
+    format('Erorr please enter again: '), read(Contact),
+    repeat_contact_number_prompt(Contact).
 
 % CREATE---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 create_booking_n(Connection, Room_ID, Guest_ID, Reservation_Status, Payment_ID, Check_in, Check_out) :-
@@ -97,10 +108,24 @@ create_guest_interactively :-
     ),
 
     % Prompt for Guest Gender and read the input
+    repeat,
     format('Enter Guest gender: '), read(Guest_Gender),
+    (   (Guest_Gender = 'Male' ; Guest_Gender = 'Female') 
+        
+    ;   
+        writeln('Error: Invalid gender. Please enter Male or Female.'),
+        fail
+    ),
           
     % Prompt for Guest Contact Number and read the input
-    format('Enter Guest Contact Number: '), read(Guest_Contact),
+    repeat,
+    format('Enter Guest Mobile Contact Number: '), read(Guest_Contact),
+    (   atom_length(Guest_Contact, 11)
+    ->  true % Valid contact number input
+    ;   
+        writeln('Error: Invalid contact number. Please enter a different contact number.'),
+        fail
+    ),
           
     % Prompt for Guest Email and read the input
     format('Enter Guest Email: '), read(Guest_Email),
@@ -456,8 +481,22 @@ update_guest_interactively :-
         ; 
             !
         ),
+        repeat,
         format('Update Gender? : '), read(Guest_Gender),
+        (   (Guest_Gender = 'Male' ; Guest_Gender = 'Female') 
+        
+        ;   
+            writeln('Error: Invalid gender. Please enter Male or Female.'),
+            fail
+        ),
+        repeat,
         format('Update Contact? : '), read(Guest_Contact),
+        (   atom_length(Guest_Contact, 11)
+            ->  true % Valid contact number input
+        ;   
+            writeln('Error: Invalid contact number. Please enter an 11-digit number.'),
+            fail
+        ),
         format('Update Email? : '), read(Guest_Email)
     ; UpdateMode =:= 2 ->
         % Selective update
@@ -475,8 +514,22 @@ update_guest_interactively :-
     
         % Read values for attributes to be updated
         (UpdateName == 'y' -> format('Update Name with? : '), read(Guest_Name) ; true),
+        repeat,
         (UpdateGender == 'y' -> format('Update Gender? : '), read(Guest_Gender) ; true),
+        (   (Guest_Gender = 'Male' ; Guest_Gender = 'Female') 
+        
+        ;   
+            writeln('Error: Invalid gender. Please enter Male or Female.'),
+            fail
+        ),
+        repeat,
         (UpdateContact == 'y' -> format('Update Contact? : '), read(Guest_Contact) ; true),
+        (   atom_length(Guest_Contact, 11)
+        ->  true % Valid contact number input
+        ;   
+            writeln('Error: Invalid contact number. Please enter an 11-digit number.'),
+            fail
+        ),
         (UpdateEmail == 'y' -> format('Update Email? : '), read(Guest_Email) ; true)
     ; 
         % Invalid input
