@@ -11,6 +11,16 @@ test_connect(Connection) :-
 guest_exists(Connection, Guest_name) :-
     format(atom(Query), 'SELECT Guest_Name FROM guest WHERE Guest_Name = \'~w\'', [Guest_name]),
     odbc_query(Connection, Query, row(_)).
+
+date_exists(Connection, Room_ID, Check_In, Check_Out) :-
+    format(atom(Query), 'SELECT Check_In, Check_Out
+    FROM booking
+    WHERE Room_ID = ~d
+    AND (
+        \'~w\' < Check_Out AND
+        \'~w\' > Check_In
+    );', [Room_ID, Check_In, Check_Out]),
+    odbc_query(Connection, Query, row(_, _)).
     
 
 % CREATE---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -60,7 +70,11 @@ create_booking_interactively :-
     format('Enter Check-out Date (yyyy-mm-dd): '), read(Check_out),
     (   Check_in @< Check_out ->
         % Check_in date is before Check_out date
-        !
+        (   date_exists(Connection, Room_ID, Check_in, Check_out) ->
+            writeln('Error: There is an existing booking that overlaps with the provided dates. Please try again.'),
+            fail
+        ;   true
+        )
     ;   % Check_in date is after Check_out date
         writeln('Error: Check-in date cannot be after Check-out date. Please try again.'),
         fail
@@ -337,8 +351,20 @@ update_booking(Connection, Booking_ID, Guest_ID, Room_ID, Reservation_Status, Pa
         format('Update Reservation Status: '), read(Reservation_Status),
         display_payment_types(Connection),
         format('Update Payment ID: '), read(Payment_ID),
-        format('Update Check-in Date: '), read(Check_In),
-        format('Update Check-out Date: '), read(Check_Out),
+        repeat,
+        format('Enter Check-in Date (yyyy-mm-dd): '), read(Check_In),
+        format('Enter Check-out Date (yyyy-mm-dd): '), read(Check_Out),
+        (   Check_In @< Check_Out ->
+            % Check_in date is before Check_out date
+            (   date_exists(Connection, Room_ID, Check_In, Check_Out) ->
+                writeln('Error: There is an existing booking that overlaps with the provided dates. Please try again.'),
+                fail
+            ;       true
+            )
+        ;   % Check_in date is after Check_out date
+            writeln('Error: Check-in date cannot be after Check-out date. Please try again.'),
+            fail
+        ),
         update_booking(Connection, Booking_ID, Guest_ID, Room_ID, Reservation_Status, Payment_ID, Check_In, Check_Out).
     
     % Selective update for the booking
