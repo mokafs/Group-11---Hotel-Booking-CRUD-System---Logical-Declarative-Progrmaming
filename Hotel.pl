@@ -22,6 +22,9 @@ date_exists(Connection, Room_ID, Check_In, Check_Out) :-
     );', [Room_ID, Check_In, Check_Out]),
     odbc_query(Connection, Query, row(_, _)).
 
+try_this_new_just_check :-
+    writeln('Wohoooo WOhooooo').
+
 repeat_contact_number_prompt(Contact) :-
     read_line_to_codes(user_input, ContactCodes),
     string_codes(Contact, ContactCodes),
