@@ -2,10 +2,10 @@
 
 % Establish a connection to the MySQL database
 connect_to_mysql(Connection) :-
-    odbc_connect('ssamu', Connection, [user('root'), password('')]).
+    odbc_connect('hotemanagement', Connection, [user('root'), password('')]).
 
 test_connect(Connection) :-
-    odbc_connect('ssamu', Connection, [user('root'), password('')]),
+    odbc_connect('hotemanagement', Connection, [user('root'), password('')]),
     write('Connection Succesful!').
 
 guest_exists(Connection, Guest_name) :-
@@ -22,17 +22,25 @@ date_exists(Connection, Room_ID, Check_In, Check_Out) :-
     );', [Room_ID, Check_In, Check_Out]),
     odbc_query(Connection, Query, row(_, _)).
 
-repeat_contact_number_prompt(Contact) :-
-    read_line_to_codes(user_input, ContactCodes),
-    string_codes(Contact, ContactCodes),
-    string_length(Contact, 11),
-    string_chars(Contact, Chars),
-    maplist(char_type, Chars, [digit]),
-    !. % Cut to stop backtracking if the input is valid
-    
-repeat_contact_number_prompt(Contact) :-
-    format('Erorr please enter again: '), read(Contact),
-    repeat_contact_number_prompt(Contact).
+guest_id_exists(Connection, Guest_ID) :-
+    format(atom(Query), 'SELECT Guest_ID FROM guest WHERE Guest_ID = ~d', [Guest_ID]),
+    odbc_query(Connection, Query, row(_)).
+
+booking_id_exists(Connection, Booking_ID) :-
+    format(atom(Query), 'SELECT Booking_ID FROM booking WHERE Booking_ID = ~d', [Booking_ID]),
+    odbc_query(Connection, Query, row(_)).
+
+room_id_exists(Connection, Room_ID) :-
+    format(atom(Query), 'SELECT Room_ID FROM room WHERE Room_ID = ~d', [Room_ID]),
+    odbc_query(Connection, Query, row(_)).
+
+guest_delete_check(Connection, Guest_ID) :-
+    format(atom(Query), 'SELECT Guest_ID FROM booking WHERE Guest_ID = ~d', [Guest_ID]),
+    odbc_query(Connection, Query, row(_)).
+
+room_delete_check(Connection, Room_ID) :-
+    format(atom(Query), 'SELECT Room_ID FROM booking WHERE Room_ID = ~d', [Room_ID]),
+    odbc_query(Connection, Query, row(_)).
 
 % CREATE---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 create_booking_n(Connection, Room_ID, Guest_ID, Reservation_Status, Payment_ID, Check_in, Check_out) :-
@@ -60,7 +68,16 @@ create_booking_interactively :-
     display_all_rooms(Connection),
     
     % Prompt user for room ID
+    repeat,
     format('Enter Room ID: '), read(Room_ID),
+    (   
+        room_id_exists(Connection, Room_ID)
+        ->  
+        true % Room ID exists
+    ; 
+        writeln('Error: Room ID does not exist in the database. Please enter a different ID.'),
+        fail % Retry input
+    ),
     
     % Display available guests
     format('Guests:~n'),
@@ -119,13 +136,16 @@ create_guest_interactively :-
           
     % Prompt for Guest Contact Number and read the input
     repeat,
-    format('Enter Guest Mobile Contact Number: '), read(Guest_Contact),
-    (   atom_length(Guest_Contact, 11)
-    ->  true % Valid contact number input
-    ;   
-        writeln('Error: Invalid contact number. Please enter a different contact number.'),
-        fail
-    ),
+    format('Enter Guest Mobile Contact Number (9-digits): '), read(Guest_Contact),
+    (   integer(Guest_Contact),
+            Guest_Contact >= 0,
+            number_chars(Guest_Contact, ContactChars),
+            length(ContactChars, 9)
+            ->  true % Valid contact number input
+        ;   
+            writeln('Error: Invalid contact number. Please enter an 9-digit number.'),
+            fail
+        ),
           
     % Prompt for Guest Email and read the input
     format('Enter Guest Email: '), read(Guest_Email),
@@ -348,7 +368,16 @@ update_booking(Connection, Booking_ID, Guest_ID, Room_ID, Reservation_Status, Pa
     update_booking_interactively :-
         connect_to_mysql(Connection),
         display_all_bookings(Connection),
+        repeat,
         format('Which booking would you want updated?(Enter BookingID): '), read(Booking_ID),
+        (   
+            booking_id_exists(Connection, Booking_ID)
+            ->  
+            true % Booking ID exists
+        ; 
+            writeln('Error: Booking ID does not exist in the database. Please enter a different ID.'),
+            fail % Retry input
+        ),
     
         % Prompt for update mode
         format('Update mode: (1) Update all attributes, (2) Selective update: '), read(UpdateMode),
@@ -369,9 +398,27 @@ update_booking(Connection, Booking_ID, Guest_ID, Room_ID, Reservation_Status, Pa
     % Update all attributes for the booking
     update_booking_all_attributes(Booking_ID, Connection) :-
         display_available_guests(Connection),
+        repeat,
         format('Update Guest ID: '), read(Guest_ID),
+        (   
+            guest_id_exists(Connection, Guest_ID)
+        ->  
+            true % Guest ID exists
+        ; 
+            writeln('Error: Guest ID does not exist in the database. Please enter a different ID.'),
+            fail % Retry input
+        ),
         display_all_rooms(Connection),
+        repeat,
         format('Update Room ID: '), read(Room_ID),
+        (   
+            room_id_exists(Connection, Room_ID)
+            ->  
+            true % Room ID exists
+        ; 
+            writeln('Error: Room ID does not exist in the database. Please enter a different ID.'),
+            fail % Retry input
+        ),
         display_reservation_status(Connection),
         format('Update Reservation Status: '), read(Reservation_Status),
         display_payment_types(Connection),
@@ -402,8 +449,26 @@ update_booking(Connection, Booking_ID, Guest_ID, Room_ID, Reservation_Status, Pa
         format('Update Check-out Date? (y/n): '), read(UpdateCheckOut),
         
         % Read values for attributes to be updated
+        repeat,
         (UpdateGuestID == 'y' -> display_available_guests(Connection), format('Update Guest ID: '), read(Guest_ID) ; true),
+        (   
+            guest_id_exists(Connection, Guest_ID)
+        ->  
+            true % Guest ID exists
+        ; 
+            writeln('Error: Guest ID does not exist in the database. Please enter a different ID.'),
+            fail % Retry input
+        ),
+        repeat,
         (UpdateRoomID == 'y' -> display_all_rooms(Connection), format('Update Room ID: '), read(Room_ID) ; true),
+        (   
+            room_id_exists(Connection, Room_ID)
+            ->  
+            true % Room ID exists
+        ; 
+            writeln('Error: Room ID does not exist in the database. Please enter a different ID.'),
+            fail % Retry input
+        ),
         (UpdateReservationStatus == 'y' -> display_reservation_status(Connection), format('Update Reservation Status: '), read(Reservation_Status) ; true),
         (UpdatePaymentID == 'y' -> display_payment_types(Connection), format('Update Payment ID: '), read(Payment_ID) ; true),
         (UpdateCheckIn == 'y' -> format('Update Check-in Date: '), read(Check_In) ; true),
@@ -466,7 +531,17 @@ update_guest_interactively :-
     connect_to_mysql(Connection),
     display_available_guests(Connection),
     
-    format('Which Guest would you want to update? : '), read(Guest_ID),
+    repeat,
+    format('Which Guest would you want to update? : '), 
+    read(Guest_ID),
+    (   
+        guest_id_exists(Connection, Guest_ID)
+    ->  
+        true % Guest ID exists
+    ; 
+        writeln('Error: Guest ID does not exist in the database. Please enter a different ID.'),
+        fail % Retry input
+    ),
         
     % Prompt user to select update mode
     format('Update mode: (1) Update all attributes, (2) Selective update: '), read(UpdateMode),
@@ -491,10 +566,13 @@ update_guest_interactively :-
         ),
         repeat,
         format('Update Contact? : '), read(Guest_Contact),
-        (   atom_length(Guest_Contact, 11)
+        (   integer(Guest_Contact),
+            Guest_Contact >= 0,
+            number_chars(Guest_Contact, ContactChars),
+            length(ContactChars, 9)
             ->  true % Valid contact number input
         ;   
-            writeln('Error: Invalid contact number. Please enter an 11-digit number.'),
+            writeln('Error: Invalid contact number. Please enter an 9-digit number.'),
             fail
         ),
         format('Update Email? : '), read(Guest_Email)
@@ -524,10 +602,14 @@ update_guest_interactively :-
         ),
         repeat,
         (UpdateContact == 'y' -> format('Update Contact? : '), read(Guest_Contact) ; true),
-        (   atom_length(Guest_Contact, 11)
+        (   integer(Guest_Contact),
+            Guest_Contact >= 0,
+            number_chars(Guest_Contact, ContactChars),
+            length(ContactChars, 9)
+    
         ->  true % Valid contact number input
         ;   
-            writeln('Error: Invalid contact number. Please enter an 11-digit number.'),
+            writeln('Error: Invalid contact number. Please enter an 9-digit number.'),
             fail
         ),
         (UpdateEmail == 'y' -> format('Update Email? : '), read(Guest_Email) ; true)
@@ -642,10 +724,32 @@ delete_guest_interactively :-
     connect_to_mysql(Connection),
     
     display_all_guests(Connection),
-    
+    repeat,
     format('Which Guest would you want to delete? : '), read(Guest_ID),
+    (   
+        guest_id_exists(Connection, Guest_ID)
+        ->  
+        true % Guest ID exists
+    ; 
+        writeln('Error: Guest ID does not exist in the database. Please enter a different ID.'),
+        fail % Retry input
+    ),
         
-    delete_guest(Connection, Guest_ID),
+    (   guest_delete_check(Connection, Guest_ID)
+    ->  % Room has bookings
+        writeln('This guest has bookings. Deleting it will also delete associated bookings.'),
+        format('Are you sure you want to delete this guest? (y/n): '), read(Confirmation),
+        (   Confirmation = 'y'
+        ->  % User confirmed deletion
+            delete_guest(Connection, Guest_ID),
+            writeln('Room deleted successfully.')
+        ;   % User declined deletion
+            writeln('Room deletion aborted.')
+        )
+    ;   % Room has no bookings
+        delete_room(Connection, Guest_ID),
+        writeln('Room deleted successfully.')
+    ),
     odbc_disconnect(Connection).
 
 % DELETE ROOM
@@ -659,10 +763,32 @@ delete_room_interactively :-
     connect_to_mysql(Connection),
     
     display_all_rooms(Connection),
-    
+    repeat,
     format('Which room would you want to delete? : '), read(Room_ID),
+    (   
+        room_id_exists(Connection, Room_ID)
+        ->  
+        true % Room ID exists
+    ; 
+        writeln('Error: Room ID does not exist in the database. Please enter a different ID.'),
+        fail % Retry input
+    ),
         
-    delete_guest(Connection, Guest_ID),
+    (   room_delete_check(Connection, Room_ID)
+    ->  % Room has bookings
+        writeln('This room has bookings. Deleting it will also delete associated bookings.'),
+        format('Are you sure you want to delete this room? (y/n): '), read(Confirmation),
+        (   Confirmation = 'y'
+        ->  % User confirmed deletion
+            delete_room(Connection, Room_ID),
+            writeln('Room deleted successfully.')
+        ;   % User declined deletion
+            writeln('Room deletion aborted.')
+        )
+    ;   % Room has no bookings
+        delete_room(Connection, Room_ID),
+        writeln('Room deleted successfully.')
+    ),
     odbc_disconnect(Connection).
 
 % Example usage:
